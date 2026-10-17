@@ -1,81 +1,61 @@
-# Colours of Harmony
+# Garden Fold
 
-An interactive tool for exploring chords, not by memorizing rules, but by **adding notes and hearing what changes**.
+A cozy 3D instrument for wandering between chords. Three notes grow in a miniature garden. Fold their triangle over an edge: two notes stay rooted, and one finds a new home.
 
-Built around a simple idea: most harmony isn't just triads. Songs stack extensions, passing tones, and chromatic colour on top of a base chord. This app lets you start from a chord (or a moment in a song), add almost any note, and see how it feels across sound, notation, and geometry.
-
-> **Work in progress.** I'm building this in public and will keep adding songs, theory, and polish over time. Expect rough edges :)
-
-
-
-Just for funsies cause visualizing sound is cool. 
-
-## Try it
+## Play
 
 ```bash
-npm install
+npm ci
 npm run dev
 ```
 
-Open [http://127.0.0.1:3000](http://127.0.0.1:3000) and click **Enable piano** so the sampler can load.
+Open http://127.0.0.1:3000. Choose a pale neighboring triangle, or use one of the three chord buttons. Drag to look around, hear the current chord, and play back the path you have made. Sound begins on your first musical interaction; the sound toggle also supports quiet exploration. Reset returns to C major.
 
-## What you can do
+The garden is centered in the full viewport, with chord information and controls in a compact floating side panel. On smaller screens, tap the chord button to open the panel; choosing a fold closes it so you can watch the garden change. A short introduction appears on your first visit, and the ? button reopens it anytime.
 
-### Explore mode
+The garden has 22 reachable triangles. Its boundary is deliberate: unavailable folds say “garden edge,” and the other directions remain available. All folds can be reversed. A walk retains the latest 32 chords.
 
-- Click notes on the **Tonnetz lattice** (a 3D harmonic network) or the **piano keyboard**
-- Hear chords as **block voicings** on a sampled piano
-- Read plain-language **insights**: what each note does, interval clashes inside the chord, mood, and voice-leading motion
-- Get **key guesses** and suggested **diatonic chords** to try next (I, IV, V, vi, ii…)
+## Four little instruments
 
-### Learn a Song mode
+The five small buttons at the top of the panel open chords, butterfly melody, bench rhythm, pond polyrhythms, and musical home. The garden objects themselves are clickable too.
 
-- Walk through song **parts** step by step (currently: *Amazing Grace*)
-- Listen to a plain version vs. a "coloured" version with extra notes
-- Load the base chord onto the staff and piano, then experiment with adding the highlighted colour tones yourself
+- **Butterfly:** edit eight half-beat landings, including rests. Start with the home key’s pentatonic scale or open its full major/natural-minor scale. Focus a landing and tap a note flower to fill it; the next landing is then selected. The butterfly lands when its note sounds and travels toward the next note between onsets.
+- **Bench person:** tap the person to start or stop the four-beat foot-tap. Eight stepping stones choose the chord’s eighth-note onsets. The onbeat and offbeat presets make syncopation easy to compare.
+- **Pond:** choose two counts from 2 through 7. Each ripple completes that many revolutions and sounds that many notes during the same four-beat bar. Presets include 2:3, 3:4, and 5:4. Equal counts demonstrate unison.
+- **Home lantern:** choose C major, G major, or A minor. Compare a four-bar I–IV–V–I phrase with a three-bar version that stops on V. The minor phrase uses i–iv–V–i, including the raised seventh in its major dominant. These guided comparisons stop at their chosen ending; the lantern brightens on the home chord.
 
-### Three views, one chord
+Melody, foot-tap, and pond can play together at a shared tempo. A recorded chord walk supplies the accompaniment, one chord per bar. The main play control loops the garden; “Play my walk” plays the recorded progression once. Editing a sequence, ratio, or tempo restarts the loop for a repeatable comparison. Switching away from a guided home comparison stops that comparison.
 
+All sound uses scheduled Web Audio events. Animation observes the audible audio timeline instead of firing notes from animation frames. Stopping, resetting, or hiding the page cancels the transport and scheduled voices. Reduced motion keeps the butterfly and pond markers at their note/beat positions with no continuous flight, orbiting, or foot movement.
 
-| View        | What it shows                                            |
-| ----------- | -------------------------------------------------------- |
-| **Staff**   | Notes stacked as a chord, coloured by harmonic role      |
-| **Piano**   | Playable keyboard with active and suggested keys         |
-| **Tonnetz** | How pitch classes relate in tonal space — drag to rotate |
+## The musical rule
 
+Notes sit on an equilateral Tonnetz lattice. Its two coordinate directions move by a perfect fifth and a major third. Every triangular face contains a major or minor triad. Reflecting across an edge performs a parallel, relative, or leading-tone transformation. Exactly two pitch classes stay unchanged, and their sounding pitches stay in the same register. The changed voice takes its nearest available pitch.
 
-## How mood & tension work
+This is an equal-tempered instrument. Colors and flowers identify visual elements; they do not claim that a chord has a universal emotional meaning. The short felt-bell voice is synthesized locally with the Web Audio API, with no downloaded samples.
 
-The app scores harmony using **semitone-based consonance** (not just chord names). A single minor 2nd or tritone inside a chord dominates the mood — because that's what your ear hears first. Labels like *calm*, *uneasy*, and *harsh clash* map to that score.
+## Art direction and references
 
-Hover a note before adding it to preview how much friction it introduces.
+The scene is a fixed, hand-arranged diorama made with Three.js geometry: clay note stones, a grassy island, flowering plants, a bench with a seated visitor, and a small pond. The triangle folds around its actual shared 3D edge. Rendering settles when the garden is idle; device pixel ratio is capped, and reduced-motion preferences remove the folding sweep while preserving the musical interaction. All essential actions are available through ordinary keyboard-accessible buttons, including when WebGL is unavailable.
 
-## Stack
+References informed the interaction and material direction; their source code and assets are not included:
 
-- **Next.js 16** + React 19 + TypeScript
-- **Tonal** for chord detection and theory
-- **Tone.js** + Salamander piano samples for audio
-- **Zustand** for state
-- **Framer Motion** for UI transitions
-- **SVG** for the Tonnetz (no WebGL — kept it lightweight on purpose)
+- [Chrome Music Lab](https://musiclab.chromeexperiments.com/): hands-on melody and rhythm experiments.
+- [Web Audio scheduling and visualization clock](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/currentTime): timing reference for the shared transport.
+- [Musical Garden — Elias Jarzombek](https://github.com/ejarzo/musical-garden): gardening gestures shape a musical space.
+- [The Endless Glass Xylophone — Sujen Phea](https://github.com/Sujenphea/xylophone), and its [August 2026 process article](https://tympanus.net/codrops/2026/08/04/building-an-endless-interactive-glass-xylophone-with-three-js/): tactile materials, a visible response coupled to a musical event, idle rendering, and device-aware rendering costs.
+- [Garden Anomaly — Frank Reitberger, August 2026](https://tympanus.net/codrops/2026/08/06/garden-anomaly-a-tiny-webgpu-and-tsl-experiment/): a small self-contained 3D scene with direct relationships between interaction, motion, and sound.
+- [From Schritte and Wechsel to Coxeter Groups](https://arxiv.org/abs/1901.05106): PLR transformations as reflections across Tonnetz triangle edges.
 
-## Project layout
+## Development
 
-```
-src/
-├── app/              # Next.js entry
-├── components/       # UI — lattice, staff, piano, panels
-├── lib/
-│   ├── audio/        # Tone.js sampler & playback
-│   ├── music/        # Theory, scoring, insights, songs, progressions
-│   └── visual/       # Tonnetz layout, staff geometry, colours
-└── store/            # Zustand harmony state
+The active experience is in `src/components/garden/`; its independent music and audio modules are in `src/lib/garden/`. The entry point is `src/app/page.tsx`.
+
+```bash
+npm run lint
+npx tsc --noEmit
+npm test
+npm run build
 ```
 
-## Roadmap (loose)
-
-- [ ] More songs and guided moments
-- [ ] Better slash-chord / inversion handling
-- [ ] Export or share a chord voicing
-- [ ] Mobile layout pass
-- [ ] Deeper "why does this note work here?" copy
+The garden check exhaustively visits the reachable lattice and verifies common notes, reversible folds, reflection geometry, and voice leading. The ensemble check covers all three homes, scales and rests, all 36 supported pond ratios, offbeat chord onsets, audio-clock frames, and finite cadence endings. The production build fetches Google Fonts.

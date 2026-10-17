@@ -1,21 +1,22 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Fraunces, Nunito } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const fraunces = Fraunces({
+  variable: "--font-fraunces",
   subsets: ["latin"],
+  axes: ["SOFT", "WONK"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
+const nunito = Nunito({
+  variable: "--font-nunito",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Colours of Harmony",
+  title: "Garden Fold — a playable little garden",
   description:
-    "An interactive harmonic exploration instrument — navigate musical tension through space and sound.",
+    "A cozy 3D garden for exploring harmony. Fold a triangle, keep two notes rooted, and find a new chord.",
 };
 
 export default function RootLayout({
@@ -26,7 +27,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${nunito.variable} h-full antialiased`}
     >
       <body className="min-h-full">{children}</body>
     </html>
