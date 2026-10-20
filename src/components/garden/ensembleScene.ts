@@ -1,8 +1,8 @@
 import * as THREE from "three";
-import { BEATS, DEFAULT_ENSEMBLE, HOMES, QUIET_FRAME, center, homeFold, type Ensemble, type GardenMode, type PerformanceFrame } from "@/lib/garden/ensemble";
-import { describe, position, type Fold, type Seed } from "@/lib/garden/music";
+import { BEATS, DEFAULT_ENSEMBLE, QUIET_FRAME, homeFold, type Ensemble, type GardenMode, type PerformanceFrame } from "@/lib/garden/ensemble";
+import { position, type Seed } from "@/lib/garden/music";
 
-export type GardenAction = { kind: "melody" | "beat" | "pond" | "home" } | { kind: "flower"; seed: Seed } | { kind: "stone"; index: number };
+export type GardenAction = { kind: "melody" | "pond" | "guitar" } | { kind: "flower"; seed: Seed } | { kind: "stone"; index: number };
 export type GardenPerformance = { config: Ensemble; mode: GardenMode; readFrame: () => PerformanceFrame };
 
 /** Scene objects are instruments, and every moving accent observes the same audio clock. */
@@ -43,19 +43,6 @@ export function addEnsembleScene(scene: THREE.Scene, visitor: THREE.Group, feet:
     ripple.rotation.x = Math.PI / 2; pondOrbits.add(ripple); ripples.push(ripple);
   }
 
-  const lantern = new THREE.Group(); lantern.userData.action = { kind: "home" }; scene.add(lantern);
-  const metal = makeMaterial("#9b8259");
-  const glow = new THREE.MeshStandardMaterial({ color: "#f8dda2", emissive: "#efb457", emissiveIntensity: .65, roughness: .55 });
-  const lamp = new THREE.Mesh(new THREE.BoxGeometry(.17, .23, .17), glow); lamp.position.y = .25; lantern.add(lamp);
-  for (const x of [-.105, .105]) for (const z of [-.105, .105]) {
-    const post = new THREE.Mesh(new THREE.CylinderGeometry(.013, .013, .29, 6), metal);
-    post.position.set(x, .25, z); lantern.add(post);
-  }
-  const roof = new THREE.Mesh(new THREE.ConeGeometry(.2, .13, 4), metal);
-  roof.position.y = .44; roof.rotation.y = Math.PI / 4; roof.castShadow = true; lantern.add(roof);
-  const base = new THREE.Mesh(new THREE.BoxGeometry(.25, .05, .25), metal); base.position.y = .1; lantern.add(base);
-  const handle = new THREE.Mesh(new THREE.TorusGeometry(.065, .012, 6, 20), metal); handle.position.y = .53; lantern.add(handle);
-  const light = new THREE.PointLight("#f5c779", .8, 1.4); light.position.y = .3; lantern.add(light);
   const homeRings = new THREE.Group(); scene.add(homeRings);
   for (let i = 0; i < 3; i++) {
     const ring = new THREE.Mesh(new THREE.TorusGeometry(.285, .012, 6, 36), gold);
@@ -74,8 +61,8 @@ export function addEnsembleScene(scene: THREE.Scene, visitor: THREE.Group, feet:
     const label = new THREE.Mesh(new THREE.PlaneGeometry(.2, .2), new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthWrite: false }));
     label.rotation.x = -Math.PI / 2; label.position.y = .042; stone.add(label);
   }
-  visitor.userData.action = { kind: "beat" };
-  const interactive = [butterfly, visitor, pond, pondOrbits, lantern, stones];
+  visitor.userData.action = { kind: "guitar" };
+  const interactive = [butterfly, visitor, pond, pondOrbits, stones];
   function action(ray: THREE.Raycaster): { action: GardenAction; distance: number } | null {
     for (const hit of ray.intersectObjects(interactive, true)) {
       let object: THREE.Object3D | null = hit.object;
@@ -86,13 +73,12 @@ export function addEnsembleScene(scene: THREE.Scene, visitor: THREE.Group, feet:
   }
   function update(next: GardenPerformance) {
     performance = next;
-    const home = homeFold(next.config.home), p = center(home);
-    lantern.position.set(p.x - .45, .035, p.z + .35);
+    const home = homeFold(next.config.home);
     homeRings.children.forEach((ring, i) => { const p = position(home[i]); ring.position.set(p.x, .075, p.z); });
     stones.children.forEach((stone, i) => { ((stone.children[0] as THREE.Mesh).material) = next.config.rhythm[i] ? gold : moss; });
     stones.visible = next.mode === "beat" || next.config.beatOn;
   }
-  function tick(frame: PerformanceFrame, now: number, reduced: boolean, fold: Fold) {
+  function tick(frame: PerformanceFrame, now: number, reduced: boolean) {
     const config = performance.config;
     const flying = frame.running && config.melodyOn;
     if (flying) {
@@ -115,9 +101,6 @@ export function addEnsembleScene(scene: THREE.Scene, visitor: THREE.Group, feet:
       ripples[i].scale.setScalar(reduced ? 1 : 1 + (1 - frame.pondPulse[i]) * 1.8);
       (ripples[i].material as THREE.MeshBasicMaterial).opacity = config.pondOn && frame.running ? frame.pondPulse[i] * .65 : 0;
     });
-    const chord = describe(fold), home = HOMES[config.home];
-    const returned = chord.root === home.root && chord.quality === (home.minor ? "minor" : "major");
-    glow.emissiveIntensity = returned ? .9 : .25; light.intensity = returned ? 1 : .25;
     stones.children.forEach((stone, i) => { stone.position.y = .08 + (frame.running && frame.step === i && !reduced ? .025 : 0); });
   }
   update(performance);

@@ -59,7 +59,7 @@ export function GardenActivities({ mode, config, onChange, playing, step, editSl
     </>}
     {mode === "home" && <>
       <h1>A place to return</h1>
-      <p className={styles.activityIntro}>The lantern marks a home chord. Hear a phrase wander away, then choose its ending.</p>
+      <p className={styles.activityIntro}>Golden rings mark your home chord. Hear a phrase wander away, then choose its ending.</p>
       <label className={styles.homeSelect}>Your musical home<select value={config.home} onChange={event => onChange(normalizeMelody({ ...config, home: event.target.value as HomeKey }))}>{Object.entries(HOMES).map(([key, home]) => <option key={key} value={key}>{home.name}</option>)}</select></label>
       <ol className={styles.cadencePath} aria-label="Guided phrase">{cadence(config.home, "return").map((chord, i) => <li key={i} aria-current={playing && phrase && bar === i ? "step" : undefined}><span>{config.home === "Am" ? ["i", "iv", "V", "i"][i] : ["I", "IV", "V", "I"][i]}</span>{describe(chord).short}</li>)}</ol>
       <p className={styles.soundingChord} aria-live="polite">Now: {currentChord}</p>

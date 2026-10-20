@@ -4,6 +4,7 @@ export class GardenAudio {
   private output: GainNode | null = null;
   private voices = new Set<OscillatorNode>();
   private muted = false;
+  private guitarWave: PeriodicWave | null = null;
 
   async unlock() {
     if (!this.context) {
@@ -56,7 +57,32 @@ export class GardenAudio {
 
   chord(midis: number[], offset = 0) { this.chordAt(midis, this.now + offset); }
 
-  tapAt(when: number, strong: boolean) {
+  /** A warm plucked string: a sharp attack, falling brightness, and decaying harmonics. */
+  pluckAt(midi: number, when: number, strength = 1) {
+    if (!this.context || !this.output) return;
+    const context = this.context;
+    if (!this.guitarWave) {
+      const real = new Float32Array(32), imaginary = new Float32Array(32);
+      for (let harmonic = 1; harmonic < 32; harmonic++) imaginary[harmonic] = 1 / harmonic ** 1.65;
+      this.guitarWave = context.createPeriodicWave(real, imaginary);
+    }
+    const start = Math.max(when, context.currentTime);
+    const oscillator = context.createOscillator(), envelope = context.createGain(), filter = context.createBiquadFilter();
+    oscillator.setPeriodicWave(this.guitarWave);
+    oscillator.frequency.value = 440 * 2 ** ((midi - 69) / 12);
+    filter.type = "lowpass"; filter.Q.value = .4;
+    filter.frequency.setValueAtTime(5200, start);
+    filter.frequency.exponentialRampToValueAtTime(850, start + .6);
+    envelope.gain.setValueAtTime(0, start);
+    envelope.gain.linearRampToValueAtTime(.24 * strength, start + .003);
+    envelope.gain.exponentialRampToValueAtTime(.0001, start + 2.1);
+    oscillator.connect(filter).connect(envelope).connect(this.output);
+    this.voices.add(oscillator);
+    oscillator.onended = () => { this.voices.delete(oscillator); oscillator.disconnect(); filter.disconnect(); envelope.disconnect(); };
+    oscillator.start(start); oscillator.stop(start + 2.15);
+  }
+
+  tapAt(when: number, strong: boolean, strength = 1) {
     if (!this.context || !this.output) return;
     const context = this.context;
     const oscillator = context.createOscillator();
@@ -64,7 +90,7 @@ export class GardenAudio {
     const start = Math.max(when, context.currentTime);
     oscillator.frequency.setValueAtTime(strong ? 420 : 610, start);
     oscillator.frequency.exponentialRampToValueAtTime(180, start + .035);
-    envelope.gain.setValueAtTime(.12, start);
+    envelope.gain.setValueAtTime(.12 * strength, start);
     envelope.gain.exponentialRampToValueAtTime(.0001, start + .065);
     oscillator.connect(envelope).connect(this.output);
     this.voices.add(oscillator);
@@ -82,5 +108,6 @@ export class GardenAudio {
     void this.context?.close();
     this.context = null;
     this.output = null;
+    this.guitarWave = null;
   }
 }

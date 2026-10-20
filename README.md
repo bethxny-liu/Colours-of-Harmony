@@ -20,13 +20,21 @@ The garden has 22 reachable triangles. Its boundary is deliberate: unavailable f
 The five small buttons at the top of the panel open chords, butterfly melody, bench rhythm, pond polyrhythms, and musical home. The garden objects themselves are clickable too.
 
 - **Butterfly:** edit eight half-beat landings, including rests. Start with the home key’s pentatonic scale or open its full major/natural-minor scale. Focus a landing and tap a note flower to fill it; the next landing is then selected. The butterfly lands when its note sounds and travels toward the next note between onsets.
-- **Bench person:** tap the person to start or stop the four-beat foot-tap. Eight stepping stones choose the chord’s eighth-note onsets. The onbeat and offbeat presets make syncopation easy to compare.
+- **Bench rhythm:** open ♩ to start or stop the four-beat foot-tap. Eight stepping stones choose the chord’s eighth-note onsets. The onbeat and offbeat presets make syncopation easy to compare.
 - **Pond:** choose two counts from 2 through 7. Each ripple completes that many revolutions and sounds that many notes during the same four-beat bar. Presets include 2:3, 3:4, and 5:4. Equal counts demonstrate unison.
-- **Home lantern:** choose C major, G major, or A minor. Compare a four-bar I–IV–V–I phrase with a three-bar version that stops on V. The minor phrase uses i–iv–V–i, including the raised seventh in its major dominant. These guided comparisons stop at their chosen ending; the lantern brightens on the home chord.
+- **Musical home:** choose C major, G major, or A minor. Golden rings mark the home chord. Compare a four-bar I–IV–V–I phrase with a three-bar version that stops on V. The minor phrase uses i–iv–V–i, including the raised seventh in its major dominant. These guided comparisons stop at their chosen ending.
 
 Melody, foot-tap, and pond can play together at a shared tempo. A recorded chord walk supplies the accompaniment, one chord per bar. The main play control loops the garden; “Play my walk” plays the recorded progression once. Editing a sequence, ratio, or tempo restarts the loop for a repeatable comparison. Switching away from a guided home comparison stops that comparison.
 
 All sound uses scheduled Web Audio events. Animation observes the audible audio timeline instead of firing notes from animation frames. Stopping, resetting, or hiding the page cancels the transport and scheduled voices. Reduced motion keeps the butterfly and pond markers at their note/beat positions with no continuous flight, orbiting, or foot movement.
+
+## A bench session
+
+Hover over the guitarist to find a small **Benchside ballad** game card; click the card, the person, or the guitar button in the toolbar to move in. The game uses a wooden music stand with tune cards, colored guitar-pick notes, matching targets, and four flowers that bloom as you catch notes. A single bar of melody notation follows the tune above the strings, highlighting the current note; “Hide music” folds it away before playing. The staff uses the actual concert pitches and quarter/eighth-note rhythms, including G major’s key signature. The garden rests while you play an original eight-bar tune: press the four arrow keys, or tap their circles, as the notes arrive. Each direction keeps the same pitch in your chosen musical home. Successful hits pluck the melody over a picked guitar accompaniment and move the visitor’s strumming hand. The smaller guitar rests close to the lap; both arms have fixed lengths and shoulder anchors embedded in the sweater.
+
+**Sunlit stroll** introduces quarter notes at 84 BPM; **Little offbeats** adds eighth-note offbeats at 96 BPM. A four-beat count-in precedes each attempt. Timing feedback distinguishes close hits (within 75 ms) from good hits (within 180 ms), and the result shows notes caught, best streak, and a timing score. Wrong or extra presses break the streak. Holding a key never catches additional notes.
+
+Pause, switching tabs, or losing window focus freezes the song and cancels its scheduled audio. Resuming gives another four-beat count-in. Escape or “Back to the garden” closes the session, stops its sound, and restores the previous garden camera. Reduced motion skips the camera sweep and keeps note cues still, lighting their targets on time. Guitar tones are synthesized locally with no samples or additional dependencies.
 
 ## The musical rule
 
@@ -58,4 +66,4 @@ npm test
 npm run build
 ```
 
-The garden check exhaustively visits the reachable lattice and verifies common notes, reversible folds, reflection geometry, and voice leading. The ensemble check covers all three homes, scales and rests, all 36 supported pond ratios, offbeat chord onsets, audio-clock frames, and finite cadence endings. The production build fetches Google Fonts.
+The garden check exhaustively visits the reachable lattice and verifies common notes, reversible folds, reflection geometry, and voice leading. The ensemble check covers all three homes, scales and rests, all 36 supported pond ratios, offbeat chord onsets, audio-clock frames, and finite cadence endings. The guitar check covers both tunes in all three homes, timing windows, notation pitches and durations, output latency, pause/resume, replay, fixed arm lengths, shoulder/elbow/wrist connections, and hand clearance across the full strum. The production build fetches Google Fonts.

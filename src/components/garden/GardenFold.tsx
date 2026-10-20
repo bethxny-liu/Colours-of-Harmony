@@ -8,6 +8,8 @@ import styles from "./garden.module.css";
 import { GardenActivities, GARDEN_MODES } from "./GardenActivities";
 import { DEFAULT_ENSEMBLE, GardenTransport, QUIET_FRAME, cadence, homeFold, offsetForFlower, type Ensemble, type GardenMode, type PerformanceFrame, type Phrase } from "@/lib/garden/ensemble";
 import type { GardenAction } from "./ensembleScene";
+import { GuitarGame } from "./GuitarGame";
+import { GuitarIcon } from "./GuitarIcon";
 
 function Leaf() {
   return <svg width="32" height="32" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M16 27V15M16 20C5 21 3 13 4 7c8-1 13 3 12 13ZM16 16C15 7 21 3 28 4c1 8-4 13-12 12Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>;
@@ -36,6 +38,11 @@ export function GardenFold() {
   const [sceneStatus, setSceneStatus] = useState<"loading" | "ready" | "unavailable">("loading");
   const [audioError, setAudioError] = useState(false);
   const [panelOpen, setPanelOpen] = useState(false);
+  const [guitarOpen, setGuitarOpen] = useState(false);
+  const [guitarHint, setGuitarHint] = useState<{ x: number; y: number } | null>(null);
+  const guitarHintTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const guitarHintElement = useRef<HTMLButtonElement>(null);
+  const guitarButton = useRef<HTMLButtonElement>(null);
   const instructions = useRef<HTMLDialogElement>(null);
   const [pulse, setPulse] = useState(0);
   const host = useRef<HTMLDivElement>(null);
@@ -51,6 +58,13 @@ export function GardenFold() {
   const chord = describe(fold);
   const choices = neighbors(fold);
   const selectedChoice = highlighted === null ? null : choices[highlighted];
+  const showGuitarHint = useCallback((anchor: { x: number; y: number } | null) => {
+    if (guitarHintTimer.current) clearTimeout(guitarHintTimer.current);
+    if (anchor) setGuitarHint(previous => previous?.x === anchor.x && previous?.y === anchor.y ? previous : anchor);
+    else guitarHintTimer.current = setTimeout(() => {
+      if (!guitarHintElement.current?.matches(":hover, :focus")) setGuitarHint(null);
+    }, 180);
+  }, []);
 
   const stop = useCallback(() => {
     generation.current++;
@@ -68,6 +82,7 @@ export function GardenFold() {
   useEffect(() => {
     let cancelled=false;
     const invalidate = () => { generation.current++; };
+    const clearHintTimer = () => { if (guitarHintTimer.current) clearTimeout(guitarHintTimer.current); };
     audio.current=new GardenAudio();
     transport.current=new GardenTransport(audio.current, (frame, nextFold) => performanceStep.current(frame, nextFold), () => {
       setPlaying(false);setReplaying(false);setPlayhead(-1);replayFlag.current=false;
@@ -78,6 +93,7 @@ export function GardenFold() {
         scene.current=createGarden(host.current,{
           onFold:index=>foldAction.current(index),
           onHover:setHighlighted,
+          onGuitarHover:showGuitarHint,
           onAction:action=>gardenAction.current(action),
         });
         setSceneStatus("ready");
@@ -87,13 +103,20 @@ export function GardenFold() {
       }
     }).catch(()=>{if(!cancelled)setSceneStatus("unavailable");});
     return ()=> {
-      cancelled=true;invalidate();
+      cancelled=true;invalidate();clearHintTimer();
       timers.current.forEach(clearTimeout);
       scene.current?.dispose();scene.current=null;
       transport.current?.dispose();transport.current=null;
       audio.current?.dispose();audio.current=null;
     };
-  },[]);
+  },[showGuitarHint]);
+
+  useEffect(() => {
+    if (!guitarHint) return;
+    const dismiss = (event: KeyboardEvent) => { if (event.key === "Escape") setGuitarHint(null); };
+    window.addEventListener("keydown", dismiss);
+    return () => window.removeEventListener("keydown", dismiss);
+  }, [guitarHint]);
 
   useEffect(()=>{scene.current?.update({fold,trail:phrase ? cadence(config.home,phrase) : trail,highlighted,pulse});},[fold,trail,highlighted,pulse,sceneStatus,phrase,config.home]);
   useEffect(() => {
@@ -111,6 +134,7 @@ export function GardenFold() {
     };
   });
   useEffect(()=>{audio.current?.setMuted(muted);},[muted]);
+  useEffect(() => { scene.current?.setGuitarFocus(guitarOpen); }, [guitarOpen, sceneStatus]);
   useEffect(()=> {
     const hide=()=>{if(document.hidden)stop();};
     document.addEventListener("visibilitychange",hide);
@@ -196,9 +220,17 @@ export function GardenFold() {
   };
 
   const openMode = (next: GardenMode) => { if(phrase && next!=="home")stop();setMode(next);setPanelOpen(true); };
+  const openGuitar = () => { stop(); setGuitarHint(null); setHighlighted(null); setPanelOpen(false); setGuitarOpen(true); };
+  const closeGuitar = useCallback(() => {
+    setGuitarOpen(false);
+    requestAnimationFrame(() => guitarButton.current?.focus());
+  }, []);
+  const strumGuitar = useCallback(() => scene.current?.strum(), []);
   useEffect(() => {
     gardenAction.current=action=> {
-      if (action.kind === "flower") {
+      if (action.kind === "guitar") {
+        openGuitar();
+      } else if (action.kind === "flower") {
         const offset=offsetForFlower(action.seed,config);
         if(offset===null)return;
         setConfig({...config,melody:config.melody.map((note,i)=>i===editSlot?offset:note)});
@@ -209,7 +241,6 @@ export function GardenFold() {
         setConfig({...config,rhythm:config.rhythm.map((hit,i)=>i===action.index?!hit:hit)});
       } else {
         openMode(action.kind);
-        if(action.kind === "beat")toggleFeature("beatOn");
         if(action.kind === "pond")toggleFeature("pondOn");
       }
     };
@@ -227,7 +258,7 @@ export function GardenFold() {
   };
 
   return (
-    <main className={styles.garden} aria-label="Interactive musical garden">
+    <><main className={styles.garden} data-guitar-open={guitarOpen} inert={guitarOpen} aria-label="Interactive musical garden">
       <a href="#fold-controls" className={styles.skip} onClick={event => {
         event.preventDefault();
         setPanelOpen(true);
@@ -239,12 +270,21 @@ export function GardenFold() {
         {sceneStatus === "unavailable" && <div className={styles.fallback} role="status"><Leaf /><p>The 3D garden couldn’t open on this device.<br />You can still explore every chord in the side panel.</p><button onClick={() => setPanelOpen(true)}>Open chord controls</button></div>}
       </section>
 
+      {guitarHint && !guitarOpen && <button ref={guitarHintElement} className={styles.guitarHint} style={{ left: guitarHint.x, top: guitarHint.y }} onPointerEnter={() => { if (guitarHintTimer.current) clearTimeout(guitarHintTimer.current); }} onPointerLeave={() => showGuitarHint(null)} onFocus={() => { if (guitarHintTimer.current) clearTimeout(guitarHintTimer.current); }} onBlur={() => showGuitarHint(null)} onClick={openGuitar} aria-label="Play Benchside ballad, guitar rhythm game">
+        <span className={styles.hintHeading}><GuitarIcon size={22} /><span>A LITTLE RHYTHM GAME</span></span>
+        <strong>Benchside ballad</strong>
+        <span className={styles.hintKeys} aria-hidden="true">{["←", "↓", "↑", "→"].map(arrow => <i key={arrow}>{arrow}</i>)}</span>
+        <span className={styles.hintPlay}>Click to play <span aria-hidden="true">↗</span></span>
+      </button>}
+
       <nav className={styles.tools} aria-label="Garden tools">
         <button aria-label={playing ? "Stop garden" : "Play garden"} aria-pressed={playing} title={playing ? "Stop garden" : "Play garden"} onClick={()=>playing?stop():void startPerformance(config.melodyOn||config.beatOn||config.pondOn?config:{...config,melodyOn:true})}>{playing ? "□" : "▷"}</button>
         <span className={styles.toolDivider} />
         <button aria-label={muted ? "Turn sound on" : "Turn sound off"} aria-pressed={!muted} onClick={() => setMuted(m => !m)} title={muted ? "Sound off" : "Sound on"}><SoundIcon muted={muted} /></button>
         <span className={styles.toolDivider} />
         <button onClick={() => scene.current?.resetView()} aria-label="Reset garden camera" title="Reset view"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M4 10a8 8 0 1 1 1 7M4 4v6h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg></button>
+        <span className={styles.toolDivider} />
+        <button ref={guitarButton} onClick={openGuitar} aria-label="Play guitar" title="Play a guitar session"><GuitarIcon /></button>
         <span className={styles.toolDivider} />
         <button onClick={() => instructions.current?.showModal()} aria-label="How to play" title="How to play">?</button>
       </nav>
@@ -287,12 +327,14 @@ export function GardenFold() {
         <ol className={styles.steps}>
           <li><span>01</span><p><strong>Pick a pale triangle.</strong> It folds into a new chord. Two notes stay; one changes.</p></li>
           <li><span>02</span><p><strong>Give the butterfly a tune.</strong> Open ʚɞ, then choose eight notes or tap their flowers. A dash leaves a little rest.</p></li>
-          <li><span>03</span><p><strong>Bring the garden to life.</strong> Tap the person for a beat, the pond for two rhythms, or the lantern to find a musical home.</p></li>
+          <li><span>03</span><p><strong>Play with the guitarist.</strong> Hover or tap the person for a little arrow-key rhythm game. Open ♩ for a steady foot-tap, or tap the pond to explore two rhythms.</p></li>
           <li><span>04</span><p><strong>Look around.</strong> Drag to turn, pinch or scroll to get closer. The ▷ button plays the garden; □ gives everyone a rest.</p></li>
         </ol>
         <button className={styles.startButton} onClick={() => { instructions.current?.close(); void listen(); }}>Let’s wander <span aria-hidden="true">↗</span></button>
         <p className={styles.instructionFootnote}>The ? button is here whenever you need it.</p>
       </dialog>
     </main>
+    {guitarOpen && <GuitarGame home={config.home} muted={muted} onMute={() => setMuted(value => !value)} onStrum={strumGuitar} onClose={closeGuitar} />}
+    </>
   );
 }

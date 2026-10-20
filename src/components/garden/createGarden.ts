@@ -3,10 +3,12 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { HOME, gardenSeeds, neighbors, noteName, position, seedKey, type Fold } from "@/lib/garden/music";
 import { offsetForFlower } from "@/lib/garden/ensemble";
 import { addEnsembleScene, type GardenAction, type GardenPerformance } from "./ensembleScene";
+import { addGuitar, type ArmRig } from "./guitarScene";
 
 type Options = {
   onFold: (index: number) => void;
   onHover: (index: number | null) => void;
+  onGuitarHover: (anchor: { x: number; y: number } | null) => void;
   onAction: (action: GardenAction) => void;
 };
 type GardenUpdate = { fold: Fold; trail: Fold[]; highlighted: number | null; pulse: number };
@@ -20,7 +22,7 @@ export function createGarden(host: HTMLElement, options: Options) {
   renderer.shadowMap.type = THREE.PCFShadowMap;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.12;
-  renderer.domElement.setAttribute("aria-label", "A miniature 3D garden. Choose a neighboring triangle to fold your chord.");
+  renderer.domElement.setAttribute("aria-label", "A miniature 3D garden. Choose a neighboring triangle to fold your chord, or the visitor’s guitar for a rhythm game.");
   host.appendChild(renderer.domElement);
   const scene = new THREE.Scene();
   const camera = new THREE.OrthographicCamera(-8, 8, 5, -5, 0.1, 80);
@@ -57,7 +59,7 @@ export function createGarden(host: HTMLElement, options: Options) {
   const moss = material("#a7b98b"), soil = material("#b8906e"), stemMaterial = material("#5c8056");
   const pale = material("#f8e9bd"), pink = material("#d7928b"), lavender = material("#a6a1c4");
   const leaves = [material("#6f9366"), material("#8aa66c"), material("#b0ba7c")];
-  function mesh(geometry: THREE.BufferGeometry, mat: THREE.Material, parent: THREE.Object3D = scene) {
+  function mesh<T extends THREE.BufferGeometry>(geometry: T, mat: THREE.Material, parent: THREE.Object3D = scene) {
     const item = new THREE.Mesh(geometry, mat);
     item.castShadow = true;
     item.receiveShadow = true;
@@ -153,7 +155,7 @@ export function createGarden(host: HTMLElement, options: Options) {
     const leg = mesh(new THREE.CylinderGeometry(.035,.035,.33,8), wood, bench);
     leg.position.set(x,.16,z);
   }
-  // A clay-sized visitor, seated with bent knees and hands resting in their lap.
+  // A clay-sized guitarist, with one hand on the frets and one over the sound hole.
   const visitor = new THREE.Group();
   visitor.position.x = -.05;
   bench.add(visitor);
@@ -167,9 +169,9 @@ export function createGarden(host: HTMLElement, options: Options) {
   torso.rotation.x = .08;
   rod(visitor, new THREE.Vector3(0,.78,.02), new THREE.Vector3(0,.85,.025), .045, skin);
   ellipsoid(visitor, skin, [0,.94,.025], [.12,.135,.115]);
-  const haircut = mesh(new THREE.SphereGeometry(1, 20, 12, 0, Math.PI * 2, 0, Math.PI * .48), hair, visitor);
-  haircut.scale.set(.128,.145,.123);
-  haircut.position.set(0,.94,.006);
+  const haircut = mesh(new THREE.SphereGeometry(1, 24, 16, 0, Math.PI * 2, 0, Math.PI * .43), hair, visitor);
+  haircut.scale.set(.128,.145,.124);
+  haircut.position.set(0,.94,.025);
   haircut.castShadow = false;
   haircut.receiveShadow = false;
   const fringe = ellipsoid(visitor, hair, [-.05,1.035,.095], [.065,.035,.035]);
@@ -177,6 +179,7 @@ export function createGarden(host: HTMLElement, options: Options) {
   fringe.receiveShadow = false;
   const eyes = material("#4d473a");
   const visitorFeet: THREE.Mesh[] = [];
+  const arms: ArmRig[] = [];
   for (const side of [-1,1]) {
     const hip = new THREE.Vector3(side*.075,.43,.06);
     const knee = new THREE.Vector3(side*.085,.35,.25);
@@ -185,15 +188,17 @@ export function createGarden(host: HTMLElement, options: Options) {
     ellipsoid(visitor, trousers, knee.toArray(), [.064,.064,.064]);
     rod(visitor, knee, ankle, .052, trousers);
     visitorFeet.push(ellipsoid(visitor, shoes, [side*.085,.075,.32], [.07,.047,.11]));
-    const shoulder = new THREE.Vector3(side*.13,.73,.02);
-    const elbow = new THREE.Vector3(side*.18,.56,.09);
-    const hand = new THREE.Vector3(side*.08,.49,.18);
-    rod(visitor, shoulder, elbow, .05, sweater);
-    ellipsoid(visitor, sweater, elbow.toArray(), [.05,.05,.05]);
-    rod(visitor, elbow, hand, .044, sweater);
-    ellipsoid(visitor, skin, hand.toArray(), [.048,.035,.045]);
+    const root = new THREE.Group(); root.position.set(side * .112, .735, .035); visitor.add(root);
+    ellipsoid(root, sweater, [0, 0, 0], [.062, .065, .059]);
+    const upperArm = mesh(new THREE.CylinderGeometry(.046, .046, .19, 12), sweater, root);
+    const elbowMesh = ellipsoid(root, sweater, [0, -.19, 0], [.047, .047, .047]);
+    const forearm = mesh(new THREE.CylinderGeometry(.038, .041, .205, 12), sweater, root);
+    const handMesh = ellipsoid(root, skin, [0, -.3, .05], [.035, .04, .028]);
+    arms.push({ root, upperLength: .19, foreLength: .205, upperArm, elbow: elbowMesh, forearm, hand: handMesh });
     ellipsoid(visitor, eyes, [side*.041,.96,.134], [.011,.014,.007]);
   }
+  const guitar = addGuitar(visitor, arms[0], arms[1]);
+  guitar.tick(0, true, 0);
   const pot = new THREE.Group();
   pot.position.set(-.95,.04,-3.45);
   scene.add(pot);
@@ -290,6 +295,44 @@ export function createGarden(host: HTMLElement, options: Options) {
   const pointer = new THREE.Vector2();
   let pointerDown = {x:0,y:0};
   let hovered: number | null = null;
+  type CameraPose = { position: THREE.Vector3; target: THREE.Vector3; zoom: number };
+  let guitarFocused = false;
+  let savedView: CameraPose | null = null;
+  let cameraTween: { from: CameraPose; to: CameraPose; start: number } | null = null;
+  let guitaristHovered = false;
+  const hintPoint = new THREE.Vector3();
+  const updateGuitarHint = () => {
+    if (!guitaristHovered || guitarFocused) return;
+    visitor.localToWorld(hintPoint.set(0, 1.15, .05)).project(camera);
+    options.onGuitarHover({
+      x: Math.max(122, Math.min(host.clientWidth - 122, (hintPoint.x + 1) * host.clientWidth / 2)),
+      y: Math.max(170, (1 - hintPoint.y) * host.clientHeight / 2 - 12),
+    });
+  };
+  const hideGuitarHint = () => { guitaristHovered = false; options.onGuitarHover(null); };
+  const pose = (): CameraPose => ({ position: camera.position.clone(), target: controls.target.clone(), zoom: camera.zoom });
+  const guitarPose = (): CameraPose => {
+    const mobile = host.clientWidth <= 760;
+    const direction = new THREE.Vector3(.7, 1.35, 4.5).normalize();
+    const right = new THREE.Vector3().crossVectors(camera.up, direction).normalize();
+    const up = new THREE.Vector3().crossVectors(direction, right).normalize();
+    const target = guitar.object.getWorldPosition(new THREE.Vector3());
+    // Leave room for the score on the right, or below the guitar on a phone.
+    target.addScaledVector(right, mobile ? 0 : .57);
+    target.addScaledVector(up, mobile ? -1.38 : -.38);
+    return { position: target.clone().addScaledVector(direction, 4.6), target, zoom: (camera.top - camera.bottom) / (2 * (mobile ? 1.7 : .94)) };
+  };
+  const setGuitarFocus = (enabled: boolean) => {
+    if (enabled === guitarFocused) return;
+    if (enabled) savedView = pose();
+    guitarFocused = enabled;
+    hideGuitarHint();
+    controls.enabled = false;
+    cameraTween = { from: pose(), to: enabled ? guitarPose() : savedView ?? pose(), start: performance.now() };
+    needsRender = true;
+    animateUntil = performance.now() + 1200;
+    renderer.domElement.style.cursor = enabled ? "default" : "grab";
+  };
 
   function clearGroup(group: THREE.Group) {
     for (const object of [...group.children]) {
@@ -329,6 +372,7 @@ export function createGarden(host: HTMLElement, options: Options) {
   }
   updateChoices();
   const pick = (event: PointerEvent): GardenAction | { kind: "fold"; index: number } | null => {
+    if (guitarFocused || cameraTween) return null;
     const bounds=renderer.domElement.getBoundingClientRect();
     pointer.set((event.clientX-bounds.left)/bounds.width*2-1,-(event.clientY-bounds.top)/bounds.height*2+1);
     raycaster.setFromCamera(pointer,camera);
@@ -349,19 +393,23 @@ export function createGarden(host: HTMLElement, options: Options) {
     return index === undefined ? null : { kind: "fold", index };
   };
   const move = (event: PointerEvent) => {
+    if (event.pointerType === "touch") return;
+    if (event.buttons) { hideGuitarHint(); return; }
     const action=pick(event);
     const index=action?.kind === "fold" ? action.index : null;
     if (index!==hovered) {hovered=index;options.onHover(index);}
     renderer.domElement.style.cursor=action===null?"grab":"pointer";
+    if (action?.kind === "guitar") { guitaristHovered = true; updateGuitarHint(); }
+    else if (guitaristHovered) hideGuitarHint();
   };
-  const down = (event: PointerEvent) => {pointerDown={x:event.clientX,y:event.clientY};};
+  const down = (event: PointerEvent) => {pointerDown={x:event.clientX,y:event.clientY}; hideGuitarHint();};
   const up = (event: PointerEvent) => {
     if (Math.hypot(event.clientX-pointerDown.x,event.clientY-pointerDown.y)>6) return;
     const action=pick(event);
     if (action?.kind === "fold") { if (!animation) options.onFold(action.index); }
     else if (action) options.onAction(action);
   };
-  const leave = () => {hovered=null;options.onHover(null);};
+  const leave = () => {hovered=null;options.onHover(null);hideGuitarHint();};
   renderer.domElement.addEventListener("pointermove",move);
   renderer.domElement.addEventListener("pointerdown",down);
   renderer.domElement.addEventListener("pointerup",up);
@@ -376,6 +424,10 @@ export function createGarden(host: HTMLElement, options: Options) {
     // Balance the taller tree canopy so the whole diorama sits at the screen center.
     camera.left=-half*aspect;camera.right=half*aspect;camera.top=half+.45;camera.bottom=-half+.45;
     camera.updateProjectionMatrix();renderer.setSize(w,h);
+    if (guitarFocused) {
+      const next = guitarPose(); camera.position.copy(next.position); controls.target.copy(next.target); camera.zoom = next.zoom;
+      camera.lookAt(next.target); camera.updateProjectionMatrix(); cameraTween = null;
+    }
     needsRender = true;
   };
   const observer=new ResizeObserver(resize);observer.observe(host);resize();
@@ -383,7 +435,17 @@ export function createGarden(host: HTMLElement, options: Options) {
   let disposed=false;
   function render(now:number) {
     if(disposed)return;
-    const cameraMoved = controls.update();
+    let cameraMoved = false;
+    if (cameraTween) {
+      const t = reducedMotion.matches ? 1 : Math.min(1, (now - cameraTween.start) / 950);
+      const eased = t * t * (3 - 2 * t);
+      camera.position.lerpVectors(cameraTween.from.position, cameraTween.to.position, eased);
+      controls.target.lerpVectors(cameraTween.from.target, cameraTween.to.target, eased);
+      camera.zoom = THREE.MathUtils.lerp(cameraTween.from.zoom, cameraTween.to.zoom, eased);
+      camera.lookAt(controls.target); camera.updateProjectionMatrix(); cameraMoved = true;
+      if (t === 1) { cameraTween = null; controls.enabled = !guitarFocused; }
+    } else if (!guitarFocused) cameraMoved = controls.update();
+    if (cameraMoved && guitaristHovered) updateGuitarHint();
     const performanceFrame = ensemble.performance.readFrame();
     if(document.hidden || (!cameraMoved && !needsRender && !animation && !performanceFrame.running && now > animateUntil)) {
       frame = requestAnimationFrame(render);
@@ -419,7 +481,8 @@ export function createGarden(host: HTMLElement, options: Options) {
       stone.mat.color.lerp(new THREE.Color(landing && performanceFrame.flight < .4 ? "#e8bd9d" : selected ? "#f4e6b8" : "#c5cca8"),.15);
       stone.group.position.y=.08+(selected?pulse:0)+(landing && !reducedMotion.matches ? Math.max(0,1-performanceFrame.flight*3)*.04 : 0);
     });
-    ensemble.tick(performanceFrame, now, reducedMotion.matches, state.fold);
+    ensemble.tick(performanceFrame, now, reducedMotion.matches);
+    guitar.tick(now, reducedMotion.matches, performanceFrame.beatPulse);
     renderer.render(scene,camera);
     needsRender = false;
     frame=requestAnimationFrame(render);
@@ -427,6 +490,8 @@ export function createGarden(host: HTMLElement, options: Options) {
   frame=requestAnimationFrame(render);
   return {
     update,
+    setGuitarFocus,
+    strum() { guitar.strum(performance.now()); needsRender = true; animateUntil = performance.now() + 500; },
     setPerformance(next: GardenPerformance) { ensemble.update(next); needsRender=true; animateUntil=performance.now()+1500; },
     resetView(){camera.position.set(7.5,10,12);camera.zoom=1;controls.target.set(0,0,0);camera.updateProjectionMatrix();controls.update();needsRender=true;},
     dispose(){

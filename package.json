@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node scripts/check-garden.mjs && node scripts/check-ensemble.mjs"
+    "test": "node scripts/check-garden.mjs && node scripts/check-ensemble.mjs && node scripts/check-guitar.mjs"
   },
   "dependencies": {
     "next": "16.2.10",
